@@ -6,7 +6,7 @@ import confetti from "canvas-confetti";
 const messages = [
   "Happy Valentine's Day, love!",
   "Salamat at natagpuan kita.",
-  "You're my favorite part of staying alive.",
+  "You're my favorite part of being alive.",
   "Tap the card for a surprise!",
 ];
 
