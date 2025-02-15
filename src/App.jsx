@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import "./App.css";
 import confetti from "canvas-confetti";
@@ -26,6 +26,438 @@ const triggerConfetti = () => {
   });
 };
 
+const SpaceShooterGame = ({ onGameCompleted, gameCompleted, setGameCompleted }) => {
+  const [playerHealth, setPlayerHealth] = useState(100);
+  const [bossHealth, setBossHealth] = useState(143);
+  const [playerPosition, setPlayerPosition] = useState({ x: 50, y: 80 });
+  const [bossPosition, setBossPosition] = useState({ x: 50, y: 10 });
+  const [bossDirection, setBossDirection] = useState(1);
+  const [bullets, setBullets] = useState([]);
+  const [bossBullets, setBossBullets] = useState([]);
+  const [score, setScore] = useState(0);
+  const [gameOver, setGameOver] = useState(false);
+  const [displayText, setDisplayText] = useState("143");
+  
+  const gameAreaRef = useRef(null);
+  const animationStarted = useRef(false); // To run boss-death animation only once
+
+  // Audio refs for sfx:
+  const playerShootAudioRef = useRef(null);
+  const bossHitAudioRef = useRef(null);
+  const playerHitAudioRef = useRef(null);
+  // Background music ref
+  const backgroundMusicAudioRef = useRef(null);
+
+  const bossWidth = 100, bossHeight = 100;
+  const playerWidth = 50, playerHeight = 50;
+  const bulletSize = 20;
+  const hitRadius = 50;
+
+  const playerPosRef = useRef(playerPosition);
+  const bossPosRef = useRef(bossPosition);
+  const bulletsRef = useRef(bullets);
+  const bossBulletsRef = useRef(bossBullets);
+
+  useEffect(() => { playerPosRef.current = playerPosition; }, [playerPosition]);
+  useEffect(() => { bossPosRef.current = bossPosition; }, [bossPosition]);
+  useEffect(() => { bulletsRef.current = bullets; }, [bullets]);
+  useEffect(() => { bossBulletsRef.current = bossBullets; }, [bossBullets]);
+
+  const movePlayer = (e) => {
+    if (gameAreaRef.current) {
+      const rect = gameAreaRef.current.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      setPlayerPosition({ x, y });
+    }
+  };
+
+  const shootBullet = () => {
+    if (gameOver) return; // Prevent shooting when the game is over
+    if (gameAreaRef.current) {
+      const rect = gameAreaRef.current.getBoundingClientRect();
+      const { x, y } = playerPosRef.current;
+      const bulletX = (x / 100) * rect.width;
+      const bulletY = (y / 100) * rect.height;
+      setBullets((prev) => [
+        ...prev,
+        { x: bulletX, y: bulletY, id: Date.now() }
+      ]);
+      // Play player's shoot sound
+      if (playerShootAudioRef.current) {
+        playerShootAudioRef.current.currentTime = 0;
+        playerShootAudioRef.current.play();
+      }
+    }
+  };
+  
+
+  const spawnBossBullet = (boss) => {
+    if (gameAreaRef.current) {
+      const rect = gameAreaRef.current.getBoundingClientRect();
+      const bossPixelX = (boss.x / 100) * rect.width;
+      const bossPixelY = (boss.y / 100) * rect.height;
+      const { x: pX, y: pY } = playerPosRef.current;
+      const playerPixelX = (pX / 100) * rect.width;
+      const playerPixelY = (pY / 100) * rect.height;
+      const dx = playerPixelX - bossPixelX;
+      const dy = playerPixelY - bossPixelY;
+      const magnitude = Math.sqrt(dx * dx + dy * dy) || 1;
+      const directionX = dx / magnitude;
+      const directionY = dy / magnitude;
+      setBossBullets((prev) => [
+        ...prev,
+        {
+          x: bossPixelX,
+          y: bossPixelY,
+          id: Date.now(),
+          directionX,
+          directionY,
+        }
+      ]);
+    }
+  };
+
+  useEffect(() => {
+    const movementInterval = setInterval(() => {
+      setBossPosition((prev) => {
+        const speed = 0.5;
+        let newX = prev.x + bossDirection * speed;
+        if (newX > 95) { newX = 95; setBossDirection(-1); }
+        else if (newX < 5) { newX = 5; setBossDirection(1); }
+        return { ...prev, x: newX };
+      });
+    }, 20);
+    return () => clearInterval(movementInterval);
+  }, [bossDirection]);
+
+  useEffect(() => {
+    const shootingInterval = setInterval(() => {
+      spawnBossBullet(bossPosRef.current);
+    }, 250);
+    return () => clearInterval(shootingInterval);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      shootBullet();
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setBullets((prev) =>
+        prev.map((bullet) => ({ ...bullet, y: bullet.y - 10 }))
+      );
+      setBossBullets((prev) =>
+        prev.map((bullet) => ({
+          ...bullet,
+          x: bullet.x + bullet.directionX * 10,
+          y: bullet.y + bullet.directionY * 10,
+        }))
+      );
+    }, 50);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Collision checking (stops once gameOver is true)
+  useEffect(() => {
+    if (gameOver) return;
+    const interval = setInterval(() => {
+      if (!gameAreaRef.current) return;
+      const rect = gameAreaRef.current.getBoundingClientRect();
+
+      // Boss collision
+      const bossPixelX = (bossPosRef.current.x / 100) * rect.width;
+      const bossPixelY = (bossPosRef.current.y / 100) * rect.height;
+      const bossCenterX = bossPixelX + bossWidth / 2;
+      const bossCenterY = bossPixelY + bossHeight / 2;
+
+      // Player collision
+      const playerPixelX = (playerPosRef.current.x / 100) * rect.width;
+      const playerPixelY = (playerPosRef.current.y / 100) * rect.height;
+      const playerCenterX = playerPixelX + playerWidth / 2;
+      const playerCenterY = playerPixelY + playerHeight / 2;
+
+      // Bullets hitting boss
+      bulletsRef.current.forEach((bullet) => {
+        const bulletCenterX = bullet.x + bulletSize / 2;
+        const bulletCenterY = bullet.y + bulletSize / 2;
+        const dx = bulletCenterX - bossCenterX;
+        const dy = bulletCenterY - bossCenterY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < hitRadius) {
+          const damage = 1;
+          setBossHealth((prev) => Math.max(0, prev - damage));
+          setScore((prev) => Math.min(143, prev + damage));
+          setBullets((prev) => prev.filter((b) => b.id !== bullet.id));
+          // Play boss hit sound
+          if (bossHitAudioRef.current) {
+            bossHitAudioRef.current.currentTime = 0;
+            bossHitAudioRef.current.play();
+          }
+        }
+      });
+
+      // Boss bullets hitting player
+      bossBulletsRef.current.forEach((bullet) => {
+        const bulletCenterX = bullet.x + bulletSize / 2;
+        const bulletCenterY = bullet.y + bulletSize / 2;
+        const dx = bulletCenterX - playerCenterX;
+        const dy = bulletCenterY - playerCenterY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < hitRadius) {
+          setPlayerHealth((prev) => Math.max(0, prev - 10));
+          setBossBullets((prev) => prev.filter((b) => b.id !== bullet.id));
+          // Play player hit sound
+          if (playerHitAudioRef.current) {
+            playerHitAudioRef.current.currentTime = 0;
+            playerHitAudioRef.current.play();
+          }
+        }
+      });
+    }, 50);
+    return () => clearInterval(interval);
+  }, [gameOver]);
+
+  // When boss dies: run animated final text
+  useEffect(() => {
+    if (bossHealth <= 0 && !gameOver) {
+      setGameOver(true);
+    }
+  }, [bossHealth, gameOver]);
+
+  // When player dies: show "Game Over"
+  useEffect(() => {
+    if (playerHealth <= 0 && !gameOver) {
+      setGameOver(true);
+      setDisplayText("Game Over");
+    }
+  }, [playerHealth, gameOver]);
+
+ // Inside your SpaceShooterGame component:
+
+// Create a new ref for the bell sound effect:
+const bellAudioRef = useRef(null);
+
+// ... (other code remains the same)
+
+useEffect(() => {
+  if (gameOver && bossHealth <= 0 && !animationStarted.current) {
+    animationStarted.current = true;
+
+    const animateText = async () => {
+      // Wait 2 seconds before starting backspace
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Backspace "143"
+      let current = "143";
+      while (current.length > 0) {
+        current = current.slice(0, -1);
+        setDisplayText(current);
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      }
+
+      // Type "I love you" letter by letter
+      const newMessage = "I love you";
+      let typed = "";
+      for (let i = 0; i < newMessage.length; i++) {
+        typed += newMessage[i];
+        setDisplayText(typed);
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      }
+
+      // Freeze for 2 seconds after "I love you" is fully displayed
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Append girlfriend's name on a new line and play the bell sound
+      setDisplayText((prev) => prev + "\nGeraldine");
+      if (bellAudioRef.current) {
+        bellAudioRef.current.currentTime = 0;
+        bellAudioRef.current.play();
+      }
+
+      // Freeze for 2 seconds to allow the name to be read
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Trigger final events (win)
+      triggerConfetti();
+      setGameCompleted(true);
+      onGameCompleted();
+    };
+
+    animateText();
+  }
+}, [gameOver, bossHealth, onGameCompleted, setGameCompleted]);
+
+  // --- Updated Score Display ---
+  // Compute progress (from 0 to 1)
+  const progress = score / 143;
+  // Interpolate from top-right (left: 95%, top: 5%) to center (left: 50%, top: 50%)
+  // Add slight adjustments when progress is 1.
+  const offsetLeft = 0.5; // tweak this value (in percentage points)
+  const offsetTop = -0.5; // tweak this value (in percentage points)
+  const leftPosition = progress === 1 ? `calc(50% - ${offsetLeft}%)` : `${95 - 48 * progress - offsetLeft}%`;
+  const topPosition = progress === 1 ? `calc(50% + ${offsetTop}%)` : `${5 + 42 * progress + offsetTop}%`;
+  // Interpolate font size from 1rem to 4rem
+  const scoreFontSize = 1 + progress * 3;
+  // --------------------------------
+
+  // Play background music while fighting, stop when game is over.
+  useEffect(() => {
+    if (!gameOver && backgroundMusicAudioRef.current) {
+      backgroundMusicAudioRef.current.currentTime = 0;
+      backgroundMusicAudioRef.current.play();
+    } else if (gameOver && backgroundMusicAudioRef.current) {
+      backgroundMusicAudioRef.current.pause();
+    }
+  }, [gameOver]);
+
+  return (
+    // Force the game container to be full screen so that score and overlay share the same reference
+    <div
+      className="game"
+      ref={gameAreaRef}
+      onMouseMove={movePlayer}
+      style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%" }}
+    >
+      {!gameOver && (
+        <>
+          <div className="health-bar">
+            <div className="player-health" style={{ width: `${playerHealth}%` }}></div>
+            <div className="boss-health" style={{ width: `${(bossHealth / 143) * 100}%` }}></div>
+          </div>
+          {/* Updated Score: Moves from top-right to center, font size increases, bold style */}
+          <motion.div
+            className="score"
+            initial={{ left: "95%", top: "5%", fontSize: "1rem", scale: 1 }}
+            animate={{
+              left: leftPosition,
+              top: topPosition,
+              fontSize: `${scoreFontSize}rem`
+            }}
+            transition={{ duration: 0.5 }}
+            style={{
+              position: "absolute",
+              color: "white",
+              transform: "translate(-50%, -50%)",
+              fontWeight: "bold",
+              margin: 0,
+              lineHeight: 1,
+              textAlign: "center"
+            }}
+          >
+            {score}
+          </motion.div>
+          <img
+            className="player"
+            src="/images/bam.png"
+            alt="Player"
+            style={{
+              position: "absolute",
+              left: `${(playerPosRef.current.x / 100) * (gameAreaRef.current?.clientWidth || 0)}px`,
+              top: `${(playerPosRef.current.y / 100) * (gameAreaRef.current?.clientHeight || 0)}px`,
+              width: `${playerWidth}px`,
+              height: `${playerHeight}px`
+            }}
+          />
+          <img
+            className="boss"
+            src="/images/boss.png"
+            alt="Boss"
+            style={{
+              position: "absolute",
+              left: `${(bossPosRef.current.x / 100) * (gameAreaRef.current?.clientWidth || 0)}px`,
+              top: `${(bossPosRef.current.y / 100) * (gameAreaRef.current?.clientHeight || 0)}px`,
+              width: `${bossWidth}px`,
+              height: `${bossHeight}px`
+            }}
+          />
+          {bullets.map((bullet) => (
+            <img
+              key={bullet.id}
+              className="bullet"
+              src="/images/bullet.png"
+              alt="Bullet"
+              style={{
+                position: "absolute",
+                left: `${bullet.x}px`,
+                top: `${bullet.y}px`,
+                width: `${bulletSize}px`,
+                height: `${bulletSize}px`
+              }}
+            />
+          ))}
+          {bossBullets.map((bullet) => (
+            <img
+              key={bullet.id}
+              className="boss-bullet"
+              src="/images/boss-bullet.png"
+              alt="Boss Bullet"
+              style={{
+                position: "absolute",
+                left: `${bullet.x}px`,
+                top: `${bullet.y}px`,
+                width: `${bulletSize}px`,
+                height: `${bulletSize}px`
+              }}
+            />
+          ))}
+        </>
+      )}
+
+      {gameOver && (
+        <motion.div
+          className="final-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "black",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2000
+          }}
+        >
+          <h1
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              transform: "translate(-50%, -50%)",
+              color: "white",
+              fontSize: "4rem",
+              fontWeight: "bold",
+              margin: 0,
+              lineHeight: 1,
+              textAlign: "center",
+              whiteSpace: "pre-line"
+            }}
+          >
+            {displayText}
+          </h1>
+        </motion.div>
+      )}
+
+      {/* Audio elements for sfx and background music */}
+
+<audio ref={bossHitAudioRef} src="/music/pakyu na problem.wav" preload="auto" />
+<audio ref={playerHitAudioRef} src="/music/bammy-hit.wav" preload="auto" />
+<audio ref={backgroundMusicAudioRef} src="/music/boss.mp3" preload="auto" loop />
+{/* New bell sound effect for when Geraldine’s name appears */}
+<audio ref={bellAudioRef} src="/music/bell.mp3" preload="auto" />
+
+    </div>
+  );
+};
+
+
 function App() {
   const [step, setStep] = useState(0);
   const [showSurprise, setShowSurprise] = useState(false);
@@ -37,24 +469,31 @@ function App() {
   const [gameCompleted, setGameCompleted] = useState(false);
   const audioRef = useRef(null);
   const videoRef = useRef(null);
+  const warningAudioRef = useRef(null);
+
+  // When the user taps the card for the surprise, first play a warning sound and message
+  const handleFlip = () => {
+    if (step === messages.length - 1 && !flipped) {
+      // Play warning sound
+      if (warningAudioRef.current) {
+        warningAudioRef.current.currentTime = 0;
+        warningAudioRef.current.play();
+      }
+      alert("Something's not right... let's fix it together!"); // A sweet warning message
+      setFlipped(true);
+      setTimeout(() => {
+        setShowSurprise(true);
+        setGameActive(true);
+        startBackgroundEffect();
+      }, 800);
+    }
+  };
 
   const handleNext = () => {
     if (step < messages.length - 1) {
       setStep(step + 1);
     }
   };
-
-  const handleFlip = () => {
-    if (step === messages.length - 1 && !flipped) {
-      setFlipped(true);
-      setTimeout(() => {
-        setShowSurprise(true);
-        setGameActive(true); 
-        startBackgroundEffect();
-      }, 800);
-    }
-  };
-
   const startHeartRain = () => {
     if (heartsActive) return;
     setHeartsActive(true);
@@ -101,16 +540,14 @@ function App() {
       });
     }, 1000);
   };
-
-  const handleGameClick = () => {
+  const handleGameCompleted = () => {
     setGameCompleted(true);
     setGameActive(false);
-    triggerConfetti(); 
+    triggerConfetti();
     startHeartRain();
     playMusic();
     startBackgroundEffect();
   };
-  
 
   return (
     <div className="container">
@@ -157,37 +594,13 @@ function App() {
               </motion.p>
               {step < messages.length - 1 && (
                 <button className="next-btn" onClick={handleNext}>
-                  Next 
+                  Next
                 </button>
               )}
             </div>
           ) : (
             <div className="card-back">
-              {gameActive && !gameCompleted ? (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.8 }}
-                  className="game"
-                >
-                  <p>Catch the love! ❤️</p>
-                  <motion.div
-                    className="game-heart"
-                    onClick={handleGameClick}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5 }}
-                    style={{
-                      position: "absolute",
-                      left: `${Math.random() * 80}%`,
-                      top: `${Math.random() * 80}%`,
-                      cursor: "pointer",
-                    }}
-                  >
-                    ❤️
-                  </motion.div>
-                </motion.div>
-              ) : (
+              {!gameActive && gameCompleted && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.5 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -197,7 +610,7 @@ function App() {
                   I love you forever, my Geraldine!
                   <motion.video
                     ref={videoRef}
-                    src="/videos/gigiandbam.mp4" 
+                    src="/videos/gigiandbam.mp4"
                     alt="Love"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -217,8 +630,17 @@ function App() {
           )}
         </div>
       </motion.div>
+
+      {gameActive && (
+        <SpaceShooterGame
+          onGameCompleted={handleGameCompleted}
+          gameCompleted={gameCompleted} // Pass gameCompleted as a prop
+          setGameCompleted={setGameCompleted} // Pass setGameCompleted as a prop
+        />
+      )}
     </div>
   );
+
 }
 
 export default App;

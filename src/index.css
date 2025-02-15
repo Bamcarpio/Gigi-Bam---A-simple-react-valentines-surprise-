@@ -59,6 +59,16 @@ button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
+.finalText {
+  font-size: 4rem;
+  font-weight: bold;
+  margin: 0;           /* Remove default margins */
+  padding: 0;
+  text-align: center;
+  /* Ensure the line-height is similar to the score element */
+  line-height: 1;
+}
+
 
 @media (prefers-color-scheme: light) {
   :root {
