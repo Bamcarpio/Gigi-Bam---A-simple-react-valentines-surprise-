@@ -49,7 +49,7 @@ function App() {
       setFlipped(true);
       setTimeout(() => {
         setShowSurprise(true);
-        setGameActive(true); // Start the game
+        setGameActive(true); 
         startBackgroundEffect();
       }, 800);
     }
@@ -105,7 +105,7 @@ function App() {
   const handleGameClick = () => {
     setGameCompleted(true);
     setGameActive(false);
-    triggerConfetti(); // Trigger confetti after game is completed
+    triggerConfetti(); 
     startHeartRain();
     playMusic();
     startBackgroundEffect();
