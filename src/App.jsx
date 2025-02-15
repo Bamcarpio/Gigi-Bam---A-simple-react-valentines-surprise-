@@ -39,13 +39,12 @@ const SpaceShooterGame = ({ onGameCompleted, gameCompleted, setGameCompleted }) 
   const [displayText, setDisplayText] = useState("143");
   
   const gameAreaRef = useRef(null);
-  const animationStarted = useRef(false); // To run boss-death animation only once
+  const animationStarted = useRef(false); 
 
-  // Audio refs for sfx:
+  
   const playerShootAudioRef = useRef(null);
   const bossHitAudioRef = useRef(null);
   const playerHitAudioRef = useRef(null);
-  // Background music ref
   const backgroundMusicAudioRef = useRef(null);
 
   const bossWidth = 100, bossHeight = 100;
@@ -64,16 +63,25 @@ const SpaceShooterGame = ({ onGameCompleted, gameCompleted, setGameCompleted }) 
   useEffect(() => { bossBulletsRef.current = bossBullets; }, [bossBullets]);
 
   const movePlayer = (e) => {
-    if (gameAreaRef.current) {
-      const rect = gameAreaRef.current.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 100;
-      const y = ((e.clientY - rect.top) / rect.height) * 100;
-      setPlayerPosition({ x, y });
+    if (!gameAreaRef.current) return;
+    const rect = gameAreaRef.current.getBoundingClientRect();
+    let clientX, clientY;
+
+    if (e.touches) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
     }
+    const x = ((clientX - rect.left) / rect.width) * 100;
+    const y = ((clientY - rect.top) / rect.height) * 100;
+    setPlayerPosition({ x, y });
   };
+  
 
   const shootBullet = () => {
-    if (gameOver) return; // Prevent shooting when the game is over
+    if (gameOver) return; 
     if (gameAreaRef.current) {
       const rect = gameAreaRef.current.getBoundingClientRect();
       const { x, y } = playerPosRef.current;
@@ -83,7 +91,7 @@ const SpaceShooterGame = ({ onGameCompleted, gameCompleted, setGameCompleted }) 
         ...prev,
         { x: bulletX, y: bulletY, id: Date.now() }
       ]);
-      // Play player's shoot sound
+  
       if (playerShootAudioRef.current) {
         playerShootAudioRef.current.currentTime = 0;
         playerShootAudioRef.current.play();
@@ -161,26 +169,25 @@ const SpaceShooterGame = ({ onGameCompleted, gameCompleted, setGameCompleted }) 
     return () => clearInterval(interval);
   }, []);
 
-  // Collision checking (stops once gameOver is true)
   useEffect(() => {
     if (gameOver) return;
     const interval = setInterval(() => {
       if (!gameAreaRef.current) return;
       const rect = gameAreaRef.current.getBoundingClientRect();
 
-      // Boss collision
+  
       const bossPixelX = (bossPosRef.current.x / 100) * rect.width;
       const bossPixelY = (bossPosRef.current.y / 100) * rect.height;
       const bossCenterX = bossPixelX + bossWidth / 2;
       const bossCenterY = bossPixelY + bossHeight / 2;
 
-      // Player collision
+
       const playerPixelX = (playerPosRef.current.x / 100) * rect.width;
       const playerPixelY = (playerPosRef.current.y / 100) * rect.height;
       const playerCenterX = playerPixelX + playerWidth / 2;
       const playerCenterY = playerPixelY + playerHeight / 2;
 
-      // Bullets hitting boss
+
       bulletsRef.current.forEach((bullet) => {
         const bulletCenterX = bullet.x + bulletSize / 2;
         const bulletCenterY = bullet.y + bulletSize / 2;
@@ -192,7 +199,7 @@ const SpaceShooterGame = ({ onGameCompleted, gameCompleted, setGameCompleted }) 
           setBossHealth((prev) => Math.max(0, prev - damage));
           setScore((prev) => Math.min(143, prev + damage));
           setBullets((prev) => prev.filter((b) => b.id !== bullet.id));
-          // Play boss hit sound
+
           if (bossHitAudioRef.current) {
             bossHitAudioRef.current.currentTime = 0;
             bossHitAudioRef.current.play();
@@ -200,7 +207,7 @@ const SpaceShooterGame = ({ onGameCompleted, gameCompleted, setGameCompleted }) 
         }
       });
 
-      // Boss bullets hitting player
+     
       bossBulletsRef.current.forEach((bullet) => {
         const bulletCenterX = bullet.x + bulletSize / 2;
         const bulletCenterY = bullet.y + bulletSize / 2;
@@ -210,7 +217,7 @@ const SpaceShooterGame = ({ onGameCompleted, gameCompleted, setGameCompleted }) 
         if (distance < hitRadius) {
           setPlayerHealth((prev) => Math.max(0, prev - 10));
           setBossBullets((prev) => prev.filter((b) => b.id !== bullet.id));
-          // Play player hit sound
+   
           if (playerHitAudioRef.current) {
             playerHitAudioRef.current.currentTime = 0;
             playerHitAudioRef.current.play();
@@ -221,14 +228,14 @@ const SpaceShooterGame = ({ onGameCompleted, gameCompleted, setGameCompleted }) 
     return () => clearInterval(interval);
   }, [gameOver]);
 
-  // When boss dies: run animated final text
+
   useEffect(() => {
     if (bossHealth <= 0 && !gameOver) {
       setGameOver(true);
     }
   }, [bossHealth, gameOver]);
 
-  // When player dies: show "Game Over"
+
   useEffect(() => {
     if (playerHealth <= 0 && !gameOver) {
       setGameOver(true);
@@ -236,22 +243,17 @@ const SpaceShooterGame = ({ onGameCompleted, gameCompleted, setGameCompleted }) 
     }
   }, [playerHealth, gameOver]);
 
- // Inside your SpaceShooterGame component:
 
-// Create a new ref for the bell sound effect:
 const bellAudioRef = useRef(null);
-
-// ... (other code remains the same)
-
 useEffect(() => {
   if (gameOver && bossHealth <= 0 && !animationStarted.current) {
     animationStarted.current = true;
 
     const animateText = async () => {
-      // Wait 2 seconds before starting backspace
+  
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      // Backspace "143"
+  
       let current = "143";
       while (current.length > 0) {
         current = current.slice(0, -1);
@@ -259,7 +261,7 @@ useEffect(() => {
         await new Promise((resolve) => setTimeout(resolve, 150));
       }
 
-      // Type "I love you" letter by letter
+    
       const newMessage = "I love you";
       let typed = "";
       for (let i = 0; i < newMessage.length; i++) {
@@ -268,20 +270,19 @@ useEffect(() => {
         await new Promise((resolve) => setTimeout(resolve, 150));
       }
 
-      // Freeze for 2 seconds after "I love you" is fully displayed
+   
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      // Append girlfriend's name on a new line and play the bell sound
       setDisplayText((prev) => prev + "\nGeraldine");
       if (bellAudioRef.current) {
         bellAudioRef.current.currentTime = 0;
         bellAudioRef.current.play();
       }
 
-      // Freeze for 2 seconds to allow the name to be read
+      
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      // Trigger final events (win)
+  
       triggerConfetti();
       setGameCompleted(true);
       onGameCompleted();
@@ -291,20 +292,14 @@ useEffect(() => {
   }
 }, [gameOver, bossHealth, onGameCompleted, setGameCompleted]);
 
-  // --- Updated Score Display ---
-  // Compute progress (from 0 to 1)
   const progress = score / 143;
   // Interpolate from top-right (left: 95%, top: 5%) to center (left: 50%, top: 50%)
-  // Add slight adjustments when progress is 1.
-  const offsetLeft = 0.5; // tweak this value (in percentage points)
-  const offsetTop = -0.5; // tweak this value (in percentage points)
+  const offsetLeft = 0.5; 
+  const offsetTop = -0.5; 
   const leftPosition = progress === 1 ? `calc(50% - ${offsetLeft}%)` : `${95 - 48 * progress - offsetLeft}%`;
   const topPosition = progress === 1 ? `calc(50% + ${offsetTop}%)` : `${5 + 42 * progress + offsetTop}%`;
-  // Interpolate font size from 1rem to 4rem
   const scoreFontSize = 1 + progress * 3;
-  // --------------------------------
 
-  // Play background music while fighting, stop when game is over.
   useEffect(() => {
     if (!gameOver && backgroundMusicAudioRef.current) {
       backgroundMusicAudioRef.current.currentTime = 0;
@@ -315,20 +310,23 @@ useEffect(() => {
   }, [gameOver]);
 
   return (
-    // Force the game container to be full screen so that score and overlay share the same reference
+
     <div
-      className="game"
-      ref={gameAreaRef}
-      onMouseMove={movePlayer}
-      style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%" }}
-    >
+  className="game"
+  ref={gameAreaRef}
+  onMouseMove={movePlayer}
+  onTouchMove={(e) => {
+    e.preventDefault(); 
+    movePlayer(e);
+  }}
+  style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%" }}
+>
       {!gameOver && (
         <>
           <div className="health-bar">
             <div className="player-health" style={{ width: `${playerHealth}%` }}></div>
             <div className="boss-health" style={{ width: `${(bossHealth / 143) * 100}%` }}></div>
           </div>
-          {/* Updated Score: Moves from top-right to center, font size increases, bold style */}
           <motion.div
             className="score"
             initial={{ left: "95%", top: "5%", fontSize: "1rem", scale: 1 }}
@@ -445,12 +443,10 @@ useEffect(() => {
         </motion.div>
       )}
 
-      {/* Audio elements for sfx and background music */}
 
 <audio ref={bossHitAudioRef} src="/music/pakyu na problem.wav" preload="auto" />
 <audio ref={playerHitAudioRef} src="/music/bammy-hit.wav" preload="auto" />
 <audio ref={backgroundMusicAudioRef} src="/music/boss.mp3" preload="auto" loop />
-{/* New bell sound effect for when Geraldine’s name appears */}
 <audio ref={bellAudioRef} src="/music/bell.mp3" preload="auto" />
 
     </div>
@@ -471,15 +467,15 @@ function App() {
   const videoRef = useRef(null);
   const warningAudioRef = useRef(null);
 
-  // When the user taps the card for the surprise, first play a warning sound and message
+ 
   const handleFlip = () => {
     if (step === messages.length - 1 && !flipped) {
-      // Play warning sound
+  
       if (warningAudioRef.current) {
         warningAudioRef.current.currentTime = 0;
         warningAudioRef.current.play();
       }
-      alert("Something's not right... let's fix it together!"); // A sweet warning message
+      alert("Something's not right... let's fix it together!"); 
       setFlipped(true);
       setTimeout(() => {
         setShowSurprise(true);
@@ -634,8 +630,8 @@ function App() {
       {gameActive && (
         <SpaceShooterGame
           onGameCompleted={handleGameCompleted}
-          gameCompleted={gameCompleted} // Pass gameCompleted as a prop
-          setGameCompleted={setGameCompleted} // Pass setGameCompleted as a prop
+          gameCompleted={gameCompleted} 
+          setGameCompleted={setGameCompleted} 
         />
       )}
     </div>
