@@ -27,7 +27,7 @@ const triggerConfetti = () => {
 };
 
 const SpaceShooterGame = ({ onGameCompleted, gameCompleted, setGameCompleted }) => {
-  const [playerHealth, setPlayerHealth] = useState(100);
+  const [playerHealth, setPlayerHealth] = useState(150);
   const [bossHealth, setBossHealth] = useState(143);
   const [playerPosition, setPlayerPosition] = useState({ x: 50, y: 80 });
   const [bossPosition, setBossPosition] = useState({ x: 50, y: 10 });
@@ -195,7 +195,7 @@ const SpaceShooterGame = ({ onGameCompleted, gameCompleted, setGameCompleted }) 
         const dy = bulletCenterY - bossCenterY;
         const distance = Math.sqrt(dx * dx + dy * dy);
         if (distance < hitRadius) {
-          const damage = 1;
+          const damage = 2;
           setBossHealth((prev) => Math.max(0, prev - damage));
           setScore((prev) => Math.min(143, prev + damage));
           setBullets((prev) => prev.filter((b) => b.id !== bullet.id));
@@ -215,7 +215,7 @@ const SpaceShooterGame = ({ onGameCompleted, gameCompleted, setGameCompleted }) 
         const dy = bulletCenterY - playerCenterY;
         const distance = Math.sqrt(dx * dx + dy * dy);
         if (distance < hitRadius) {
-          setPlayerHealth((prev) => Math.max(0, prev - 10));
+          setPlayerHealth((prev) => Math.max(0, prev - 1));
           setBossBullets((prev) => prev.filter((b) => b.id !== bullet.id));
    
           if (playerHitAudioRef.current) {
